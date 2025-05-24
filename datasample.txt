@@ -1,0 +1,77 @@
+/configuration/scopes
+{
+  "ScopeId": "znext_product",
+  "ScopeType": "multi-tenant",
+  "ScopeDataLiveAuthType": "user",
+  "ScopeDataLiveAuthMethod": "bearer",
+  "Name": "Anagrafica prodotti di ZMenu Next",
+  "DescriptionFullText": "Anagrafica dei prodotti, reparti, categorie e descrizioni estese dei prodotti. Include informazioni sul prezzo degli articoli, le promozioni, gli sconti e le disponibilità degli oggetti venduti dall'eserzicio commerciale. Per i prodotti del menu sono presenti anche eventuali allergeni, la composizione dei piatti e delle portate. Sono indicate le categorie commerciali, la classificazione merceologica e l'ordine di uscita tipica in caso di comande al tavolo."
+}
+
+{
+  "ScopeId": "znext_conf",
+  "ScopeType": "multi-tenant",
+  "ScopeDataLiveAuthType": "business",
+  "ScopeDataLiveAuthMethod": "bearer",
+  "Name": "Configurazione di sistema ZMenu Next",
+  "DescriptionFullText": "Descrizione della configurazione del sistema ZMenu Next, informazioni su stampanti, stato e abilitazione delle integrazioni, impostazioni funzionali, dispositivi hardware collegati, stato della licenza, utenti attivi che possono accedere al software e relative autorizzazioni di uso"
+}
+
+
+/Configuration/businessauths
+{
+  "id": "9af85f64-5717-4562-b3fc-2c963f66ab19",
+  "businessId": "znext_0002",
+  "scopeId": "znext_conf",
+  "apiKey": "ZN1234567891"
+}
+
+{
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "businessId": "znext_0001",
+    "scopeId": "znext_conf",
+    "apiKey": "ZN1234567890"
+  }
+
+/Configuration/userauths
+{
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "userId": "zuser_0001",
+  "businessId": "znext_0001",
+  "scopeId": "znext_product",
+  "apiKey": "ZN1234567892"
+}
+
+
+https://localhost:7088/elements
+{
+  "id": "element_stock_promo001",
+  "scope": "znext_product",
+  "businessId": "znext_0001",
+  "fulltext": "Questo elemento descrive lo stock aggiornato degli articoli in promozione disponibili nel catalogo aziendale.",
+  "commands": [
+    {
+      "commandName": "Visualizza stock",
+      "commandUrl": "https://api.znext.com/products/stock"
+    }
+  ],
+  "liveDataUrl": "https://api.restful-api.dev/objects",
+  "liveDataValidation": null,
+  "liveDataTemplate": "@foreach (var item in Model) {\n@: --- Prodotto @item.name @if (item.data != null) {\n    @foreach (var prop in (IDictionary<string, object>)item.data) {\n  @: @prop.Key: @prop.Value\n  }\n} --- \n}"
+}
+
+{
+  "id": "2",
+  "scope": "znext_product",
+  "fulltext": "elenco dei piatti del giorni disponibili al momento con relativo prezzo.",
+  "commands": [
+    {
+      "commandName": "cerca online",
+      "commandUrl": "https://www.google.com"
+    }
+  ],
+  "liveDataUrl": "http://localhost:5000/products",
+  "liveDataValidation": null,
+  "liveDataTemplate": "@{ var currentDate = DateTime.Now.ToString(\"dd/MM/yyyy\"); }\n@foreach (var item in Model) {\n@if (item.availability) {\n@:Il prodotto @item.name è descritto come @item.description è della categoria @item.categoryName e oggi @currentDate costa @item.price €\n}\n}",
+  "businessId":"znext_0001"
+}

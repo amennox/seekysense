@@ -1,0 +1,4 @@
+.vscode/
+bin/
+*.html
+obj/

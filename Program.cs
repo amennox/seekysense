@@ -1,0 +1,60 @@
+using McpServer.Configuration;
+using McpServer.Data;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// === Configurazioni esistenti ===
+builder.Services.Configure<EmbeddingSettings>(
+    builder.Configuration.GetSection("Embedding"));
+
+builder.Services.Configure<EmbeddingFTSettings>(
+builder.Configuration.GetSection("EmbeddingFT"));
+
+builder.Services.Configure<ElasticSettings>(
+    builder.Configuration.GetSection("ElasticSearch"));
+
+builder.Services.Configure<SummarizeSettings>(
+builder.Configuration.GetSection("Summarize"));
+
+builder.Services.AddDbContext<McpDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+
+builder.Services.AddScoped<ConfigurationService>();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ElasticsearchService>();
+builder.Services.AddScoped<EmbeddingService>();
+builder.Services.AddScoped<RenderTextService>();
+builder.Services.AddScoped<ElementService>();
+builder.Services.AddScoped<ElasticsearchService>();
+builder.Services.AddControllers();
+
+// Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+
+var app = builder.Build();
+
+// === Middleware standard ===
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+else
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseCors(policy =>
+{
+    policy.AllowAnyOrigin()
+          .AllowAnyMethod()
+          .AllowAnyHeader();
+});
+
+app.MapControllers(); // Attiva le API REST
+
+
+app.Run();
