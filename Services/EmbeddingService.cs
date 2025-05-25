@@ -10,18 +10,22 @@ public class EmbeddingService
     private readonly HttpClient _http;
     private readonly EmbeddingSettings _embedding;
     private readonly EmbeddingFTSettings _embeddingFT;
+    private readonly EmbeddingFTImageSettings _embeddingFTImage;
 
     public EmbeddingService(
         IHttpClientFactory httpClientFactory,
         IOptions<EmbeddingSettings> embeddingOptions,
-        IOptions<EmbeddingFTSettings> embeddingFTOptions)
+        IOptions<EmbeddingFTSettings> embeddingFTOptions,
+        IOptions<EmbeddingFTImageSettings> embeddingFTOptionsImageOptions
+        )
     {
         _http = httpClientFactory.CreateClient();
         _embedding = embeddingOptions.Value;
         _embeddingFT = embeddingFTOptions.Value;
+        _embeddingFTImage = embeddingFTOptionsImageOptions.Value;
     }
 
-    // === Metodo retrocompatibile ===
+    // === Embedding da testo (retrocompatibile) ===
     public async Task<float[]?> GetEmbeddingFromOllama(string text)
     {
         var payload = new
@@ -38,6 +42,7 @@ public class EmbeddingService
         return result?.Embeddings?.FirstOrDefault()?.ToArray();
     }
 
+    // === Embedding da testo (standard/fine-tuned) ===
     public async Task<float[]?> GetEmbedding(string text, string type = "fine-tuned")
     {
         string baseUrl;
@@ -64,6 +69,25 @@ public class EmbeddingService
             model = model,
             input = text
         };
+
+        var response = await _http.PostAsJsonAsync(baseUrl, payload);
+
+        if (!response.IsSuccessStatusCode) return null;
+
+        var result = await response.Content.ReadFromJsonAsync<OllamaEmbeddingResponse>();
+        return result?.Embeddings?.FirstOrDefault()?.ToArray();
+    }
+
+    // === Embedding da immagine (uniforme) ===
+    public async Task<float[]?> GetEmbeddingFromImage(byte[] imageBytes)
+    {
+        var imgBase64 = Convert.ToBase64String(imageBytes);
+        string baseUrl;
+        var payload = new
+        {
+            input = imgBase64
+        };
+        baseUrl = _embeddingFTImage.BaseUrl;
 
         var response = await _http.PostAsJsonAsync(baseUrl, payload);
 

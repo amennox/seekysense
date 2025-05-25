@@ -350,7 +350,62 @@ namespace McpServer.Controllers
             return Ok(results);
         }
 
+        [HttpPost("searchimage")]
 
+        public async Task<IActionResult> SearchImage([FromForm] SearchImageRequest request, IFormFile image)
+        {
+            if (image == null || image.Length == 0)
+                return BadRequest("Image file is required.");
+            if (string.IsNullOrWhiteSpace(request.BusinessId))
+                return BadRequest("BusinessId is required");
+            if (string.IsNullOrWhiteSpace(request.UserId))
+                return BadRequest("UserId is required");
+
+            byte[] imageBytes;
+            using (var ms = new MemoryStream())
+            {
+                await image.CopyToAsync(ms);
+                imageBytes = ms.ToArray();
+            }
+
+            float[]? imageEmbedding;
+            try
+            {
+                imageEmbedding = await _emService.GetEmbeddingFromImage(imageBytes);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error from EMbedder: {ex.Message}");
+            }
+
+            if (imageEmbedding == null)
+                return StatusCode(500, "Failed to generate image embedding");
+
+            var results = await _esService.SearchByImageVectorAsync(
+                imageEmbedding,
+                request.Text,
+                request.Scope,
+                request.BusinessId
+            );
+
+            // Esempio: normalizza risultati, scegli come vuoi mappare
+            var maxScore = results.Max(e => e.Score) ?? 1.0;
+            var response = results
+                .Where(x => (x.Score ?? 0) > maxScore * 0.5)
+                .Select(x => new
+                {
+                    x.Image.Id,
+                    x.Image.Title,
+                    x.Image.Fulltext,
+                    x.Image.ImageUrl,
+                    x.Image.ElementId,
+                    Score = x.Score,
+                    Relevance = maxScore > 0 ? Math.Round((x.Score ?? 0) / maxScore * 100.0, 0) : 0
+                    // aggiungi altri campi se vuoi
+                }).ToList();
+
+            return Ok(response);
+        }
 
         private async Task<string> SummarizeWithOllamaAsync(string text, string userQuery)
         {

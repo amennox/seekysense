@@ -142,3 +142,44 @@ PUT /elements
   }
 }
 ```
+
+```
+PUT /snapshot
+{
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text"
+      },
+      "scope": {
+        "type": "keyword"
+      },
+      "businessid": {
+        "type": "keyword"
+      },
+      "fulltext": {
+        "type": "text"
+      },
+      "fulltextvect": {
+        "type": "dense_vector",
+        "dims": 1024,
+        "index": true,         
+        "similarity": "cosine"
+      },
+      "imageurl": {
+        "type": "keyword"
+      },
+      "imagevect": {
+        "type": "dense_vector",
+        "dims": 512,         
+        "index": true,
+        "similarity": "cosine"
+      },
+      "elementid": {
+        "type": "keyword"
+      }
+    }
+  }
+}
+
+```

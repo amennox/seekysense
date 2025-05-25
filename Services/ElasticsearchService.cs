@@ -223,6 +223,46 @@ public class ElasticsearchService
     }
 
 
+    public async Task<List<(Image Image, double? Score)>> SearchByImageVectorAsync(
+        float[] imageVector,
+        string? text,
+        string? scope,
+        string businessId
+    )
+    {
+        var response = await _client.SearchAsync<Image>(s => s
+            .Index("images") 
+            .Query(q =>
+                q.Bool(b => b
+                    .Must(
+                        q.ScriptScore(ss => ss
+                            .Query(inner => inner.MatchAll())
+                            .Script(scs => scs
+                                .Source("cosineSimilarity(params.query_vector, 'imagevect') + 1.0")
+                                .Params(p => p.Add("query_vector", imageVector))
+                            )
+                        ),
+                        !string.IsNullOrEmpty(text)
+                            ? q.Match(m => m.Field(f => f.Fulltext).Query(text))
+                            : null
+                    )
+                    .Filter(f => f.Bool(bb => bb
+                        .Must(
+                            scope != null
+                                ? f.Term(t => t.Field("scope").Value(scope))
+                                : f.MatchAll(),
+                            f.Term(t => t.Field("businessid").Value(businessId))
+                        )
+                    ))
+                )
+            )
+            .Size(100)
+        );
+
+        return response.Hits.Select(hit => (hit.Source, hit.Score)).ToList();
+    }
+
+
     public async Task<List<(Element Element, double? Score)>> SearchByVectorOnlyAsync(float[] vector, string? scope, string businessId)
     {
         var response = await _client.SearchAsync<Element>(s => s

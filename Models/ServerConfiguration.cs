@@ -11,6 +11,13 @@ namespace McpServer.Configuration
         public string BaseUrl { get; set; } = "";
         public string Model { get; set; } = "";
     }
+
+    public class EmbeddingFTImageSettings
+    {
+        public string BaseUrl { get; set; } = "";
+        public string Model { get; set; } = "";
+    }
+
     public class ElasticSettings
     {
         public string BaseUrl { get; set; } = "";

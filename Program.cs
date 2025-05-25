@@ -11,6 +11,9 @@ builder.Services.Configure<EmbeddingSettings>(
 builder.Services.Configure<EmbeddingFTSettings>(
 builder.Configuration.GetSection("EmbeddingFT"));
 
+builder.Services.Configure<EmbeddingFTImageSettings>(
+builder.Configuration.GetSection("EmbeddingFTImage"));
+
 builder.Services.Configure<ElasticSettings>(
     builder.Configuration.GetSection("ElasticSearch"));
 
@@ -27,6 +30,7 @@ builder.Services.AddScoped<EmbeddingService>();
 builder.Services.AddScoped<RenderTextService>();
 builder.Services.AddScoped<ElementService>();
 builder.Services.AddScoped<ElasticsearchService>();
+builder.Services.AddScoped<ImageService>();
 builder.Services.AddControllers();
 
 // Swagger
@@ -56,5 +60,5 @@ app.UseCors(policy =>
 
 app.MapControllers(); // Attiva le API REST
 
-
+app.UseStaticFiles();
 app.Run();
