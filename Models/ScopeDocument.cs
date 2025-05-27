@@ -5,6 +5,6 @@ namespace McpServer.Models
         public string ScopeId { get; set; } = null!;
         public string Name { get; set; } = null!;
         public string DescriptionFullText { get; set; } = null!;
-        public float[]? DescriptionVector { get; set; }
+        public double[]? DescriptionVector { get; set; }
     }
 }

@@ -10,8 +10,8 @@ namespace McpServer.Models
         public string? LiveDataTemplate { get; set; }
         public string? LiveDataValidation { get; set; }
         public required string Fulltext { get; set; }
-        public float[]? FulltextVect { get; set; }
-        public float[]? FulltextVectFT { get; set; }
+        public double[]? FulltextVect { get; set; }
+        public double[]? FulltextVectFT { get; set; }
 
         public string? BusinessId { get; set; }
     }

@@ -17,7 +17,7 @@ public class ElasticsearchService
         _elastic = elasticOptions.Value;
     }
 
-    public async Task<List<(Element Element, double? Score)>> SearchByVectorAndTextAsync(float[] vector, string query, string? scope, string businessId)
+    public async Task<List<(Element Element, double? Score)>> SearchByVectorAndTextAsync(double[] vector, string query, string? scope, string businessId)
     {
         var response = await _client.SearchAsync<Element>(s => s
             .Query(q => q
@@ -184,7 +184,7 @@ public class ElasticsearchService
     }
 
     public async Task<List<(Element Element, double? Score)>> SearchByVectorAndTextFTAsync(
-    float[] vector, string query, string? scope, string businessId)
+    double[] vector, string query, string? scope, string businessId)
     {
         var response = await _client.SearchAsync<Element>(s => s
             .Query(q =>
@@ -224,46 +224,38 @@ public class ElasticsearchService
 
 
     public async Task<List<(Image Image, double? Score)>> SearchByImageVectorAsync(
-        float[] imageVector,
+        double[] imageVector,
         string? text,
         string? scope,
         string businessId
     )
     {
         var response = await _client.SearchAsync<Image>(s => s
-            .Index("images") 
+            .Index("images")
             .Query(q =>
-                q.Bool(b => b
-                    .Must(
-                        q.ScriptScore(ss => ss
-                            .Query(inner => inner.MatchAll())
-                            .Script(scs => scs
-                                .Source("cosineSimilarity(params.query_vector, 'imagevect') + 1.0")
-                                .Params(p => p.Add("query_vector", imageVector))
+                q.ScriptScore(ss => ss
+                    .Query(inner => inner
+                        .Bool(b => b
+                            .Filter(
+                                !string.IsNullOrEmpty(scope) ? q => q.Term(t => t.Field(f => f.Scope).Value(scope)) : q => q.MatchAll(),
+                                !string.IsNullOrEmpty(businessId) ? q => q.Term(t => t.Field(f => f.BusinessId).Value(businessId)) : q => q.MatchAll()
                             )
-                        ),
-                        !string.IsNullOrEmpty(text)
-                            ? q.Match(m => m.Field(f => f.Fulltext).Query(text))
-                            : null
-                    )
-                    .Filter(f => f.Bool(bb => bb
-                        .Must(
-                            scope != null
-                                ? f.Term(t => t.Field("scope").Value(scope))
-                                : f.MatchAll(),
-                            f.Term(t => t.Field("businessid").Value(businessId))
                         )
-                    ))
+                    )
+                    .Script(scs => scs
+                        .Source("cosineSimilarity(params.query_vector, 'imageVect') + 1.0")
+                        .Params(p => p.Add("query_vector", imageVector))
+                    )
                 )
             )
-            .Size(100)
+            .Size(10)
         );
 
         return response.Hits.Select(hit => (hit.Source, hit.Score)).ToList();
     }
 
 
-    public async Task<List<(Element Element, double? Score)>> SearchByVectorOnlyAsync(float[] vector, string? scope, string businessId)
+    public async Task<List<(Element Element, double? Score)>> SearchByVectorOnlyAsync(double[] vector, string? scope, string businessId)
     {
         var response = await _client.SearchAsync<Element>(s => s
             .Query(q =>

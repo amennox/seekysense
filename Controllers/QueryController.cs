@@ -320,11 +320,11 @@ namespace McpServer.Controllers
 
             // PCA
             var pcaVector = PcaHelper.CalcolaAutovettorePrincipale(matrix);
-            var pcaFloat = pcaVector.Select(d => (float)d).ToArray();
+            var pcaDouble= pcaVector.Select(d => (double)d).ToArray();
 
             // Seconda ricerca: solo vettore PCA
             var finalResults = await _esService.SearchByVectorOnlyAsync(
-                pcaFloat, request.Scope, request.BusinessId);
+                pcaDouble, request.Scope, request.BusinessId);
 
             // Normalizzazione + filtro + enrichment
             var maxScore = finalResults.Max(e => e.Score) ?? 1.0;
@@ -368,10 +368,11 @@ namespace McpServer.Controllers
                 imageBytes = ms.ToArray();
             }
 
-            float[]? imageEmbedding;
+            double[]? imageEmbedding;
             try
             {
                 imageEmbedding = await _emService.GetEmbeddingFromImage(imageBytes);
+                
             }
             catch (Exception ex)
             {
@@ -402,6 +403,7 @@ namespace McpServer.Controllers
                     Score = x.Score,
                     Relevance = maxScore > 0 ? Math.Round((x.Score ?? 0) / maxScore * 100.0, 0) : 0
                     // aggiungi altri campi se vuoi
+                    //var relevancePercent = maxScore > 0 ? (score / maxScore) * 100.0 : 0.0;
                 }).ToList();
 
             return Ok(response);

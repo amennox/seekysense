@@ -18,7 +18,7 @@ namespace McpServer.Configuration
         public string? Title { get; set; }
         public string? Fulltext { get; set; }
         public string? ImageUrl { get; set; }
-        public float[]? ImageVect { get; set; }
+        public double[]? ImageVect { get; set; }
         public string? ElementId { get; set; }
         // altre proprietà che ti servono...
     }

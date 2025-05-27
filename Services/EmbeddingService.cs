@@ -26,7 +26,7 @@ public class EmbeddingService
     }
 
     // === Embedding da testo (retrocompatibile) ===
-    public async Task<float[]?> GetEmbeddingFromOllama(string text)
+    public async Task<double[]?> GetEmbeddingFromOllama(string text)
     {
         var payload = new
         {
@@ -43,7 +43,7 @@ public class EmbeddingService
     }
 
     // === Embedding da testo (standard/fine-tuned) ===
-    public async Task<float[]?> GetEmbedding(string text, string type = "fine-tuned")
+    public async Task<double[]?> GetEmbedding(string text, string type = "fine-tuned")
     {
         string baseUrl;
         string model;
@@ -79,7 +79,7 @@ public class EmbeddingService
     }
 
     // === Embedding da immagine (uniforme) ===
-    public async Task<float[]?> GetEmbeddingFromImage(byte[] imageBytes)
+    public async Task<double[]?> GetEmbeddingFromImage(byte[] imageBytes)
     {
         var imgBase64 = Convert.ToBase64String(imageBytes);
         string baseUrl;
@@ -94,12 +94,13 @@ public class EmbeddingService
         if (!response.IsSuccessStatusCode) return null;
 
         var result = await response.Content.ReadFromJsonAsync<OllamaEmbeddingResponse>();
+       
         return result?.Embeddings?.FirstOrDefault()?.ToArray();
     }
 
     private class OllamaEmbeddingResponse
     {
         [JsonPropertyName("embeddings")]
-        public List<List<float>>? Embeddings { get; set; }
+        public List<List<double>>? Embeddings { get; set; }
     }
 }

@@ -41,7 +41,7 @@ namespace McpServer.Controllers
 
             // 2. Calcola embedding
             byte[] imageBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-            float[]? imageVect;
+            double[]? imageVect;
             try
             {
                 imageVect = await _emService.GetEmbeddingFromImage(imageBytes);
