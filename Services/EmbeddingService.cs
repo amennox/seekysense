@@ -79,14 +79,24 @@ public class EmbeddingService
     }
 
     // === Embedding da immagine (uniforme) ===
-    public async Task<double[]?> GetEmbeddingFromImage(byte[] imageBytes)
+    public async Task<double[]?> GetEmbeddingFromImage(byte[] imageBytes, string? scope = null)
     {
         var imgBase64 = Convert.ToBase64String(imageBytes);
         string baseUrl;
-        var payload = new
-        {
-            input = imgBase64
-        };
+        object payload;
+
+        if (scope == null)
+            payload = new
+            {
+                input = imgBase64
+            };
+        else
+            payload = new
+            {
+                input = imgBase64,
+                model = scope
+            };
+
         baseUrl = _embeddingFTImage.BaseUrl;
 
         var response = await _http.PostAsJsonAsync(baseUrl, payload);

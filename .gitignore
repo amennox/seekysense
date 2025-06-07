@@ -3,3 +3,5 @@ bin/
 *.html
 obj/
 wwwroot/uploads/
+wwwroot/ftimagesfile/
+wwwroot/videos/

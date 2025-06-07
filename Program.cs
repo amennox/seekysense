@@ -1,6 +1,7 @@
 using McpServer.Configuration;
 using McpServer.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -63,3 +64,5 @@ app.MapControllers(); // Attiva le API REST
 
 app.UseStaticFiles();
 app.Run();
+
+

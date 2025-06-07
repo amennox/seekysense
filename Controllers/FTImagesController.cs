@@ -12,7 +12,7 @@ public class FtImagesController : ControllerBase
     private readonly FtImagesSettings _ftimagesSettings;
 
     // Constant for upload folder inside wwwroot
-    private const string UploadFolderName = "ftimages";
+    private const string UploadFolderName = "ftimagesfile";
 
     public FtImagesController(
         ElasticsearchService esService,

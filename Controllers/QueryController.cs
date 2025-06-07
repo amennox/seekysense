@@ -371,7 +371,7 @@ namespace McpServer.Controllers
             double[]? imageEmbedding;
             try
             {
-                imageEmbedding = await _emService.GetEmbeddingFromImage(imageBytes);
+                imageEmbedding = await _emService.GetEmbeddingFromImage(imageBytes, request.Scope);
                 
             }
             catch (Exception ex)
