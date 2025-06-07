@@ -7,7 +7,14 @@ public class ElasticsearchService
 {
     private readonly IElasticClient _client;
     private const string IndexName = "elements";
+    private const string FtImageIndex = "ftimages";
+    private const string FtImageElement = "ftelements";
+    private const string ImageIndex = "images";
+
+    private const string ScopeIndex = "scopes";
+
     private readonly ElasticSettings _elastic;
+
 
     public ElasticsearchService(IOptions<ElasticSettings> elasticOptions)
     {
@@ -72,8 +79,6 @@ public class ElasticsearchService
     }
 
 
-
-
     public async Task<IndexResponse> InsertElementAsync(Element element)
     {
         return await _client.IndexDocumentAsync(element);
@@ -82,7 +87,7 @@ public class ElasticsearchService
     public async Task<IndexResponse> InsertScopeDocumentAsync(ScopeDocument scope)
     {
         var settings = new ConnectionSettings(new Uri(_elastic.BaseUrl))
-            .DefaultIndex("scopes"); // Nuovo indice scopes
+            .DefaultIndex(ScopeIndex); // Nuovo indice scopes
         var client = new ElasticClient(settings);
 
         return await client.IndexDocumentAsync(scope);
@@ -94,7 +99,7 @@ public class ElasticsearchService
     public async Task<DeleteResponse> DeleteScopeDocumentAsync(string scopeId)
     {
         var settings = new ConnectionSettings(new Uri(_elastic.BaseUrl))
-            .DefaultIndex("scopes");
+            .DefaultIndex(ScopeIndex);
         var client = new ElasticClient(settings);
 
         return await client.DeleteAsync<ScopeDocument>(scopeId);
@@ -103,7 +108,7 @@ public class ElasticsearchService
     public async Task<IndexResponse> InsertFineTuningElementAsync(FineTuningElement element)
     {
         var settings = new ConnectionSettings(new Uri(_elastic.BaseUrl))
-            .DefaultIndex("ftelement");
+            .DefaultIndex(FtImageElement);
         var client = new ElasticClient(settings);
 
         return await client.IndexDocumentAsync(element);
@@ -112,7 +117,7 @@ public class ElasticsearchService
     public async Task<FineTuningElement?> GetFineTuningElementByIdAsync(string id)
     {
         var settings = new ConnectionSettings(new Uri(_elastic.BaseUrl))
-            .DefaultIndex("ftelement");
+            .DefaultIndex(FtImageElement);
         var client = new ElasticClient(settings);
 
         var response = await client.GetAsync<FineTuningElement>(id);
@@ -122,7 +127,7 @@ public class ElasticsearchService
     public async Task<List<FineTuningElement>> SearchFineTuningElementsAsync(string? scope, string? businessId)
     {
         var settings = new ConnectionSettings(new Uri(_elastic.BaseUrl))
-            .DefaultIndex("ftelement");
+            .DefaultIndex(FtImageElement);
         var client = new ElasticClient(settings);
 
         var response = await client.SearchAsync<FineTuningElement>(s => s
@@ -139,7 +144,7 @@ public class ElasticsearchService
     public async Task<UpdateResponse<FineTuningElement>> UpdateFineTuningElementAsync(string id, FineTuningElement updatedElement)
     {
         var settings = new ConnectionSettings(new Uri(_elastic.BaseUrl))
-            .DefaultIndex("ftelement");
+            .DefaultIndex(FtImageElement);
         var client = new ElasticClient(settings);
 
         return await client.UpdateAsync<FineTuningElement>(id, u => u.Doc(updatedElement));
@@ -148,7 +153,7 @@ public class ElasticsearchService
     public async Task<DeleteResponse> DeleteFineTuningElementAsync(string id)
     {
         var settings = new ConnectionSettings(new Uri(_elastic.BaseUrl))
-            .DefaultIndex("ftelement");
+            .DefaultIndex(FtImageElement);
         var client = new ElasticClient(settings);
 
         return await client.DeleteAsync<FineTuningElement>(id);
@@ -157,7 +162,7 @@ public class ElasticsearchService
     public async Task<BulkResponse> InsertFineTuningElementsAsync(IEnumerable<FineTuningElement> elements)
     {
         var settings = new ConnectionSettings(new Uri(_elastic.BaseUrl))
-            .DefaultIndex("ftelement");
+            .DefaultIndex(FtImageElement);
         var client = new ElasticClient(settings);
 
         var bulkDescriptor = new BulkDescriptor();
@@ -231,7 +236,7 @@ public class ElasticsearchService
     )
     {
         var response = await _client.SearchAsync<Image>(s => s
-            .Index("images")
+            .Index(ImageIndex)
             .Query(q =>
                 q.ScriptScore(ss => ss
                     .Query(inner => inner
@@ -291,4 +296,28 @@ public class ElasticsearchService
         return response.Hits.Select(hit => (hit.Source, hit.Score)).ToList();
     }
 
+
+    public async Task<IndexResponse> InsertFtImageAsync(FtImage ftImage)
+        => await _client.IndexAsync(ftImage, i => i.Index(FtImageIndex));
+
+    public async Task<FtImage?> GetFtImageAsync(string id)
+        => (await _client.GetAsync<FtImage>(id, g => g.Index(FtImageIndex))).Source;
+
+    public async Task<bool> DeleteFtImageAsync(string id)
+        => (await _client.DeleteAsync<FtImage>(id, d => d.Index(FtImageIndex))).IsValid;
+
+    public async Task<(List<FtImage> items, long total)> GetFtImagesByScopeAsync(string? scope, int page, int pageSize)
+    {
+        var searchRequest = new SearchRequest("ftimages")
+        {
+            From = (page - 1) * pageSize,
+            Size = pageSize,
+            Query = string.IsNullOrEmpty(scope)
+                ? new MatchAllQuery()
+                : new TermQuery { Field = "scope", Value = scope }
+        };
+
+        var response = await _client.SearchAsync<FtImage>(searchRequest);
+        return (response.Documents.ToList(), response.Total);
+    }
 }

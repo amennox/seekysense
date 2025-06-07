@@ -4,9 +4,7 @@ using MathNet.Numerics.LinearAlgebra.Double;
 
 public static class PcaHelper
 {
-    /// <summary>
     /// Calcola il primo autovettore (componente principale) di una matrice embedding Nx1024.
-    /// </summary>
     /// <param name="data">Matrice double[N,1024] (es. 20x1024)</param>
     /// <returns>Vettore double[1024] - prima componente principale normalizzata</returns>
     public static double[] CalcolaAutovettorePrincipale(double[,] data)

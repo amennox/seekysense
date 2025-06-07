@@ -29,4 +29,9 @@ namespace McpServer.Configuration
         public string Model { get; set; } = "";
         public string PromptTemplate { get; set; } = "";
     }
+
+    public class FtImagesSettings
+        {
+            public string BaseUrl { get; set; } = "";
+        }
 }

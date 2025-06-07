@@ -23,13 +23,14 @@ builder.Configuration.GetSection("Summarize"));
 builder.Services.AddDbContext<McpDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
+builder.Services.Configure<FtImagesSettings>(builder.Configuration.GetSection("FTImages"));
+
 builder.Services.AddScoped<ConfigurationService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ElasticsearchService>();
 builder.Services.AddScoped<EmbeddingService>();
 builder.Services.AddScoped<RenderTextService>();
 builder.Services.AddScoped<ElementService>();
-builder.Services.AddScoped<ElasticsearchService>();
 builder.Services.AddScoped<ImageService>();
 builder.Services.AddControllers();
 

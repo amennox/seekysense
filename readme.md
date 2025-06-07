@@ -45,9 +45,9 @@ SuperPhone 3000 fa parte dei reparti:
 - Tecnologia
 ``` 
 
-##Indici Elastic
+## Indici Elastic
 ```
-PUT /semantic_source
+PUT /ftelements
 {
   "mappings": {
     "properties": {
@@ -62,10 +62,10 @@ PUT /semantic_source
       "scope": {
         "type": "keyword"
       },
-      "is_positive": {
+      "isPositive": {
         "type": "boolean"
       },
-      "datetime": {
+      "dateTime": {
         "type": "date",
         "format": "strict_date_optional_time||epoch_millis"
       },
@@ -183,3 +183,37 @@ PUT /snapshot
 }
 
 ```
+
+```
+PUT /ftimages
+{
+  "mappings": {
+    "properties": {
+      "businessId": {
+        "type": "keyword"
+      },
+      "scope": {
+        "type": "keyword"
+      },
+      "image": {
+        "type": "keyword"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "standard"
+      }
+    }
+  }
+}
+```
+
+
+
+## FINE TUNING VIDEO
+ - 1 Fornire una lista di filmati youtube
+ - 2 Download e processo del video
+   - Estrazione dei frame ogni 2 secondi con scarto di quelli poco diversi
+   - creazione della descrizione dello snapshot per il file tuning
+   - salvataggio file e json con coppia immagine/descrizione
+ - 3 lanciare addestramento con dataset consolidati e salvare modello
+ - 4 rendere disponibile il motore di embedding per indicizzare i filmati

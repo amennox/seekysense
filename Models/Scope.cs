@@ -9,6 +9,7 @@ namespace McpServer.Models
         public string ScopeDataLiveAuthMethod { get; set; } = null!;
         public string Name { get; set; } = null!;
         public string DescriptionFullText { get; set; } = null!;
+        public string? Embedding { get; set; } // "standard" | "fine-tuned" | "mixed"
     }
 }
 
