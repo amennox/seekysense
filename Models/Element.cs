@@ -33,4 +33,10 @@ namespace McpServer.Models
         public string? FulltextLive { get; set; }
         public int RelevanceScore { get; set; }
     }
+
+    public class FileUploadRequest
+    {
+        public IFormFile File { get; set; }
+        public string FolderType { get; set; } // "uploads" oppure "video"
+    }
 }

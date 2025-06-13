@@ -31,6 +31,7 @@ namespace McpServer.Configuration
         public string? Fulltext { get; set; }
         public string? ElementId { get; set; }
         public IFormFile Image { get; set; }
+        public string? ImageVect { get; set; } 
     }
 
 }

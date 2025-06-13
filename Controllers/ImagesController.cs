@@ -6,6 +6,7 @@ namespace McpServer.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [DisableRequestSizeLimit]
     public class ImagesController : ControllerBase
     {
         private readonly ImageService _imageService;
@@ -39,18 +40,33 @@ namespace McpServer.Controllers
                 await dto.Image.CopyToAsync(stream);
             }
 
-            // 2. Calcola embedding
-            byte[] imageBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-            double[]? imageVect;
-            try
+            // 2. Calcola o prendi l'embedding
+            double[]? imageVect = null;
+            if (!string.IsNullOrWhiteSpace(dto.ImageVect))
             {
-                imageVect = await _emService.GetEmbeddingFromImage(imageBytes);
-                if (imageVect == null)
-                    return StatusCode(500, "Impossibile calcolare embedding immagine");
+                try
+                {
+                    imageVect = System.Text.Json.JsonSerializer.Deserialize<double[]>(dto.ImageVect);
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest("ImageVect non valido: " + ex.Message);
+                }
             }
-            catch (Exception ex)
+
+            if (imageVect == null || imageVect.Length == 0)
             {
-                return StatusCode(500, $"Errore calcolo embedding: {ex.Message}");
+                byte[] imageBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+                try
+                {
+                    imageVect = await _emService.GetEmbeddingFromImage(imageBytes,dto.Scope);
+                    if (imageVect == null)
+                        return StatusCode(500, "Impossibile calcolare embedding immagine");
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, $"Errore calcolo embedding: {ex.Message}");
+                }
             }
 
             // 3. Costruisci l'oggetto Image
@@ -62,7 +78,7 @@ namespace McpServer.Controllers
                 Title = dto.Title,
                 Fulltext = dto.Fulltext,
                 ElementId = dto.ElementId,
-                ImageUrl = $"/uploads/{fileName}", // URL relativa
+                ImageUrl = $"/uploads/{fileName}",
                 ImageVect = imageVect
             };
 
