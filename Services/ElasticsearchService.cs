@@ -297,6 +297,14 @@ public class ElasticsearchService
     }
 
 
+    public async Task<Element?> GetElementByIdAsync(string id)
+    {
+        var response = await _client.GetAsync<Element>(id, idx => idx.Index("elements"));
+        if (!response.Found)
+            return null;
+        return response.Source;
+    }
+
     public async Task<IndexResponse> InsertFtImageAsync(FtImage ftImage)
         => await _client.IndexAsync(ftImage, i => i.Index(FtImageIndex));
 

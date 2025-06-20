@@ -282,7 +282,6 @@ namespace McpServer.Controllers
             await Response.WriteAsync("]");
         }
 
-
         [HttpPost("deepsense")]
         public async Task<IActionResult> PostDeepsense([FromBody] QueryRequest request)
         {
@@ -407,6 +406,38 @@ namespace McpServer.Controllers
                 }).ToList();
 
             return Ok(response);
+        }
+
+        [HttpGet("element/{id}")]
+        public async Task<IActionResult> GetElementById(
+            [FromRoute] string id,
+            [FromQuery] string businessId,
+            [FromQuery] string userId)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return BadRequest("Element ID is required");
+            if (string.IsNullOrWhiteSpace(businessId))
+                return BadRequest("BusinessId is required");
+            if (string.IsNullOrWhiteSpace(userId))
+                return BadRequest("UserId is required");
+
+            // Recupera l’elemento tramite il service ES (puoi aggiungere un metodo se non c’è)
+            var element = await _esService.GetElementByIdAsync(id);
+            if (element == null)
+                return NotFound();
+
+            // Genera una score fittizia (per la normalizzazione, puoi usare 1.0 come maxScore)
+            var dto = await ProcessElementAsync(
+                element,
+                1.0,
+                1.0,
+                businessId,
+                userId
+            );
+            if (dto == null)
+                return NotFound();
+
+            return Ok(dto);
         }
 
         private async Task<string> SummarizeWithOllamaAsync(string text, string userQuery)
