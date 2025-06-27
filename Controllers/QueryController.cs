@@ -293,6 +293,8 @@ namespace McpServer.Controllers
             if (string.IsNullOrWhiteSpace(request.UserId))
                 return BadRequest("UserId is required");
 
+            string searchType = string.IsNullOrWhiteSpace(request.Type) ? "standard" : request.Type.ToLower();
+
             // Embedding standard
             var embedding = await _emService.GetEmbedding(request.Query, "standard");
             if (embedding == null || embedding.Length == 0)

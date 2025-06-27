@@ -39,6 +39,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSingleton(provider => {
+    var config = provider.GetRequiredService<IConfiguration>();
+    var uri = config["Neo4j:Uri"];
+    var user = config["Neo4j:User"];
+    var password = config["Neo4j:Password"];
+    return new Neo4jGraphService(uri, user, password);
+});
 
 var app = builder.Build();
 

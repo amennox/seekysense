@@ -1,4 +1,4 @@
-@McpServer_HostAddress = http://localhost:5209
+@McpServer_HostAddress = http://0.0.0.0:5209
 
 GET {{McpServer_HostAddress}}/status/
 Accept: application/json
