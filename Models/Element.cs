@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace McpServer.Models
 {
     public class Element
@@ -12,8 +14,9 @@ namespace McpServer.Models
         public required string Fulltext { get; set; }
         public double[]? FulltextVect { get; set; }
         public double[]? FulltextVectFT { get; set; }
-
         public string? BusinessId { get; set; }
+        public string? ExternalId { get; set; }
+        public string? ChunkSection { get; set; }
     }
 
     public class Command
@@ -39,4 +42,29 @@ namespace McpServer.Models
         public IFormFile File { get; set; }
         public string FolderType { get; set; } // "uploads" oppure "video"
     }
+
+    public class AggregatedElementResult
+    {
+        public Element ParentElement { get; set; } = null!;
+        public double Score { get; set; }
+        public List<Element> Chunks { get; set; } = new();
+    }
+
+    public class AggregatedElementResultChunks
+    {
+        public string ExternalId { get; set; } = "";
+        public double AvgScore { get; set; }
+        public List<ArticleChunk> Chunks { get; set; } = new();
+
+
+    }
+    
+     public class ArticleChunk
+        {
+            public string Id { get; set; } = "";
+            public string Title { get; set; } = "";
+            public string ChunkSection { get; set; } = "";
+            public string Fulltext { get; set; } = "";
+            public double Score { get; set; }
+        }
 }

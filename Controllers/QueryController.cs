@@ -49,6 +49,47 @@ namespace McpServer.Controllers
             if (string.IsNullOrWhiteSpace(request.UserId))
                 return BadRequest("UserId is required");
 
+            // --- Nuova modalità: negativa o aggregazione (collapse)
+            if (!string.IsNullOrWhiteSpace(request.QueryNegative) || (request.GroupByExternalId ?? false))
+            {
+                // Embedding della query positiva
+                var includeEmbedding = await _emService.GetEmbedding(request.Query, request.Type ?? "standard");
+                // Embedding negativa (se c'è)
+                double[]? excludeEmbedding = null;
+                if (!string.IsNullOrWhiteSpace(request.QueryNegative))
+                    excludeEmbedding = await _emService.GetEmbedding(request.QueryNegative, request.Type ?? "standard");
+
+                // Chiamata avanzata
+                var advancedResults = await _esService.SearchWithPositiveNegativeAndCollapseAsync(
+                    includeEmbedding: includeEmbedding,
+                    excludeEmbedding: excludeEmbedding,
+                    queryText: request.Query,
+                    scope: request.Scope,
+                    businessId: request.BusinessId,
+                    groupByExternalId: request.GroupByExternalId ?? false
+                );
+
+                // Conversione dei risultati per la risposta (ElementResponseDto)
+                var resultDtos = new List<ElementResponseDto>();
+                double advMaxScore = advancedResults.Any() ? advancedResults.Max(r => r.Score) : 1.0;
+
+                foreach (var aggResult in advancedResults)
+                {
+                    var dto = await ProcessElementAsync(
+                        aggResult.ParentElement,
+                        aggResult.Score,
+                        advMaxScore,  // <-- usa qui il nuovo nome
+                        request.BusinessId,
+                        request.UserId
+                    );
+                    if (dto != null)
+                        resultDtos.Add(dto);
+                }
+
+                return Ok(resultDtos);
+            }
+
+            // --- Modalità classica (retrocompatibile) ---
             string searchType = string.IsNullOrWhiteSpace(request.Type) ? "standard" : request.Type.ToLower();
 
             var standardEmbedding = (searchType == "standard" || searchType == "mixed")
@@ -80,7 +121,7 @@ namespace McpServer.Controllers
 
             if (fineTunedEmbedding != null)
             {
-                var ftResults = await _esService.SearchByVectorAndTextFTAsync( // vedi punto successivo
+                var ftResults = await _esService.SearchByVectorAndTextFTAsync(
                     fineTunedEmbedding,
                     request.Query,
                     request.Scope,
@@ -119,6 +160,7 @@ namespace McpServer.Controllers
 
             return Ok(results);
         }
+
 
 
         [HttpPost("deepsearch")]
@@ -321,7 +363,7 @@ namespace McpServer.Controllers
 
             // PCA
             var pcaVector = PcaHelper.CalcolaAutovettorePrincipale(matrix);
-            var pcaDouble= pcaVector.Select(d => (double)d).ToArray();
+            var pcaDouble = pcaVector.Select(d => (double)d).ToArray();
 
             // Seconda ricerca: solo vettore PCA
             var finalResults = await _esService.SearchByVectorOnlyAsync(
@@ -373,7 +415,7 @@ namespace McpServer.Controllers
             try
             {
                 imageEmbedding = await _emService.GetEmbeddingFromImage(imageBytes, request.Scope);
-                
+
             }
             catch (Exception ex)
             {
@@ -409,6 +451,36 @@ namespace McpServer.Controllers
 
             return Ok(response);
         }
+
+        [HttpPost("searchaggregate")]
+        public async Task<IActionResult> SearchAggregate([FromBody] QueryRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Query))
+                return BadRequest("Query cannot be empty");
+            if (string.IsNullOrWhiteSpace(request.BusinessId))
+                return BadRequest("BusinessId is required");
+
+            // Prendi embedding positivo e negativo se servono (come fai ora)
+            var includeEmbedding = await _emService.GetEmbedding(request.Query, request.Type ?? "standard");
+            double[]? excludeEmbedding = null;
+            if (!string.IsNullOrWhiteSpace(request.QueryNegative))
+                excludeEmbedding = await _emService.GetEmbedding(request.QueryNegative, request.Type ?? "standard");
+
+            // Chiamata al servizio che farà la query aggregata
+            var results = await _esService.SearchAggregatedElementsAsync(
+                includeEmbedding: includeEmbedding,
+                excludeEmbedding: excludeEmbedding,
+                queryText: request.Query,
+                scope: request.Scope,
+                businessId: request.BusinessId,
+                size: 20,
+                standardEmbedding: request.Type == "standard" || request.Type == "mixed"
+            );
+
+            return Ok(results);
+        }
+
+
 
         [HttpGet("element/{id}")]
         public async Task<IActionResult> GetElementById(
