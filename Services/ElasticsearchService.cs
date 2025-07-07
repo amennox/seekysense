@@ -543,7 +543,7 @@ public class ElasticsearchService
         );
     }
 
-    public async Task<List<AggregatedElementResultChunks>> SearchAggregatedElementsAsync(
+public async Task<List<AggregatedElementResultChunks>> SearchAggregatedElementsAsync(
     double[] includeEmbedding,
     double[]? excludeEmbedding,
     string queryText,
@@ -551,71 +551,66 @@ public class ElasticsearchService
     string businessId,
     int size = 20,
     bool standardEmbedding = true)
-    {
-        // Costruisci script score
-        var scriptParams = new Dictionary<string, object>
-    {
-        { "inc", includeEmbedding }
-    };
-        string scriptSource;
-        if (standardEmbedding)
-        {
-            scriptSource = "double pos = cosineSimilarity(params.inc, 'fulltextVect');";
-        }
-        else
-        {
-            scriptSource = "double pos = cosineSimilarity(params.inc, 'fulltextVectFT');";
-        }
+{
+    // --- FASE 1: Trovare gli articoli con una logica ibrida bilanciata ---
 
-        if (excludeEmbedding != null)
+    string vectorFieldName = standardEmbedding ? "fulltextVect" : "fulltextVectFT";
+
+    // Query testuale flessibile ma con boost per dare priorità
+    var textSearchQuery = new BoolQuery
+    {
+        Should = new List<QueryContainer>
         {
-            scriptParams["exc"] = excludeEmbedding;
-            scriptParams["negWeight"] = 2.8;
-            if (standardEmbedding)
+            new MatchPhraseQuery { Field = "title", Query = queryText, Boost = 4.0 }, 
+            new MatchQuery { Field = "title", Query = queryText, Boost = 2.0 }, 
+            new MatchQuery { Field = "fulltext", Query = queryText } 
+        },
+        MinimumShouldMatch = 1,
+        Filter = new List<QueryContainer>
+        {
+            new TermQuery { Field = "scope", Value = scope },
+            new BoolQuery
             {
-                scriptSource += " double neg = cosineSimilarity(params.exc, 'fulltextVect');";
+                Should = new List<QueryContainer>
+                {
+                    new TermQuery { Field = "businessId", Value = businessId },
+                    new TermQuery { Field = "businessId", Value = "0" }
+                },
+                MinimumShouldMatch = 1
             }
-            else
+        }
+    };
+    
+    // Usiamo FunctionScore per combinare i punteggi in modo bilanciato
+    var hybridQuery = new FunctionScoreQuery
+    {
+        Query = textSearchQuery,
+        Functions = new List<IScoreFunction>
+        {
+            new ScriptScoreFunction
             {
-                scriptSource += " double neg = cosineSimilarity(params.exc, 'fulltextVectFT');";
+                Weight = 1.5,
+                // CORREZIONE CHIAVE: Aggiunto controllo di esistenza del campo vettoriale
+                Script = new InlineScript(
+                    $"if (doc['{vectorFieldName}'].size() > 0) {{ return cosineSimilarity(params.query_vector, '{vectorFieldName}') + 1.0; }} return 0.0;"
+                )
+                {
+                    Params = new Dictionary<string, object>
+                    {
+                        { "query_vector", includeEmbedding }
+                    }
+                }
             }
-            scriptSource += " return Math.max(0.0, (pos - params.negWeight * neg) + 1.0);";
-        }
-        else
-        {
-            scriptSource += " return pos + 1.0;";
-        }
-
-        // Query di base
-        var mustQueries = new List<QueryContainer>
-    {
-        new MatchQuery { Field = "fulltext", Query = queryText }
-    };
-        if (!string.IsNullOrWhiteSpace(scope))
-            mustQueries.Add(new TermQuery { Field = "scope", Value = scope });
-
-        var shouldQueries = new List<QueryContainer>
-    {
-        new TermQuery { Field = "businessId", Value = businessId },
-        new TermQuery { Field = "businessId", Value = "0" }
+        },
+        BoostMode = FunctionBoostMode.Sum, 
+        MinScore = 3.5 
     };
 
-        var scriptScoreQuery = new ScriptScoreQuery
-        {
-            Query = new BoolQuery
-            {
-                Must = mustQueries,
-                Should = shouldQueries
-            },
-            Script = new InlineScript(scriptSource) { Params = scriptParams }
-        };
-
-        // Query aggregata: terms su externalId + top_hits
-        var searchRequest = new SearchRequest("elements")
-        {
-            Size = 0, // Non vogliamo risultati flat, solo aggregati
-            Query = scriptScoreQuery,
-            Aggregations = new AggregationDictionary
+    var initialSearchRequest = new SearchRequest("elements")
+    {
+        Size = 0,
+        Query = hybridQuery,
+        Aggregations = new AggregationDictionary
         {
             {
                 "by_externalId", new TermsAggregation("by_externalId")
@@ -624,92 +619,104 @@ public class ElasticsearchService
                     Size = size,
                     Order = new List<TermsOrder>
                     {
-                        new TermsOrder { Key = "avg_score", Order = SortOrder.Descending }
+                        new TermsOrder { Key = "highest_chunk_score", Order = SortOrder.Descending }
                     },
                     Aggregations = new AggregationDictionary
                     {
-                        { "top_chunks", new TopHitsAggregation("top_chunks") { Size = 10 } },
-                        { "avg_score", new AverageAggregation("avg_score", "_score") }
+                        { "highest_chunk_score", new MaxAggregation("highest_chunk_score", "_score") }
                     }
                 }
             }
         }
-        };
+    };
 
-        var response = await _client.SearchAsync<Element>(searchRequest);
+    // --- Il resto della funzione (FASE 2, 3, 4) è identico ---
+    
+    var initialResponse = await _client.SearchAsync<Element>(initialSearchRequest);
+    if (!initialResponse.IsValid)
+        throw new Exception("Elasticsearch initial aggregation failed: " + initialResponse.DebugInformation);
 
-        if (!response.IsValid)
-            throw new Exception("Elasticsearch aggregation query failed: " + response.DebugInformation);
+    var relevantExternalIds = initialResponse.Aggregations
+                                    .Terms("by_externalId")?
+                                    .Buckets
+                                    .Select(b => b.Key)
+                                    .ToList();
 
-        var results = new List<AggregatedElementResultChunks>();
-
-        var buckets = response.Aggregations.Terms("by_externalId")?.Buckets;
-        if (buckets != null)
-        {
-            const double negativeThreshold = 0.05;
-
-            foreach (var bucket in buckets)
-            {
-                var avgScore = bucket.Average("avg_score")?.Value ?? 0.0;
-                var topHits = bucket.TopHits("top_chunks");
-
-                // 1. Crea una lista temporanea di tuple (chunk, vettore)
-                var chunkWithVector = new List<(ArticleChunk chunk, double[]? vector)>();
-
-                if (topHits?.Hits<Element>() != null)
-                {
-                    foreach (var hit in topHits.Hits<Element>())
-                    {
-                        var src = hit.Source;
-                        if (src == null) continue;
-
-                        var chunk = new ArticleChunk
-                        {
-                            Id = src.Id,
-                            Title = src.Title,
-                            ChunkSection = src.ChunkSection ?? "",
-                            Fulltext = src.Fulltext,
-                            Score = hit.Score ?? 0.0
-                        };
-
-                        // Prendi il vettore embedding corretto SOLO per il filtro
-                        double[]? vect = standardEmbedding ? src.FulltextVect : src.FulltextVectFT;
-
-                        chunkWithVector.Add((chunk, vect));
-                    }
-                }
-
-                // 2. Logica di esclusione gruppi troppo simili alla query negativa
-                bool hasNegative = false;
-                if (excludeEmbedding != null && chunkWithVector.Any())
-                {
-                    foreach (var pair in chunkWithVector)
-                    {
-                        var vect = pair.vector;
-                        if (vect == null) continue;
-                        double sim = CosineSimilarity(excludeEmbedding, vect);
-                        if (sim >= negativeThreshold)
-                        {
-                            hasNegative = true;
-                            break;
-                        }
-                    }
-                }
-                if (hasNegative)
-                    continue; // salta questo gruppo
-
-                // 3. Aggiungi alla risposta SOLO la parte "pulita"
-                results.Add(new AggregatedElementResultChunks
-                {
-                    ExternalId = bucket.Key as string ?? "",
-                    AvgScore = avgScore,
-                    Chunks = chunkWithVector.Select(x => x.chunk).ToList()
-                });
-            }
-        }
-
-        return results;
+    if (relevantExternalIds == null || !relevantExternalIds.Any())
+    {
+        return new List<AggregatedElementResultChunks>();
     }
+
+    var allChunksSearchRequest = new SearchRequest("elements")
+    {
+        Size = 10000,
+        Query = new BoolQuery
+        {
+            Filter = new QueryContainer[]
+            {
+                new TermsQuery
+                {
+                    Field = "externalId",
+                    Terms = relevantExternalIds
+                }
+            }
+        }
+    };
+
+    var allChunksResponse = await _client.SearchAsync<Element>(allChunksSearchRequest);
+    if (!allChunksResponse.IsValid)
+        throw new Exception("Elasticsearch failed to fetch all chunks: " + allChunksResponse.DebugInformation);
+        
+    var chunksByExternalId = allChunksResponse.Documents.GroupBy(d => d.ExternalId).ToDictionary(g => g.Key, g => g.ToList());
+
+    var finalResults = new List<AggregatedElementResultChunks>();
+
+    foreach (var externalId in relevantExternalIds)
+    {
+        if (!chunksByExternalId.ContainsKey(externalId)) continue;
+        
+        var articleChunks = new List<ArticleChunk>();
+        
+        foreach (var element in chunksByExternalId[externalId])
+        {
+            var vector = standardEmbedding ? element.FulltextVect : element.FulltextVectFT;
+            if (vector == null) continue;
+
+            double positiveScore = CosineSimilarity(includeEmbedding, vector);
+            double negativeScore = (excludeEmbedding != null) ? CosineSimilarity(excludeEmbedding, vector) : 0.0;
+
+            articleChunks.Add(new ArticleChunk
+            {
+                Id = element.Id,
+                Title = element.Title,
+                ChunkSection = element.ChunkSection ?? "",
+                Fulltext = element.Fulltext,
+                Score = positiveScore,
+                NegativeScore = negativeScore
+            });
+        }
+        
+        if (!articleChunks.Any()) continue;
+        
+        var avgScore = articleChunks.Average(c => c.Score);
+        var maxPositiveScore = articleChunks.Max(c => c.Score);
+        var maxNegativeScore = articleChunks.Max(c => c.NegativeScore);
+
+        finalResults.Add(new AggregatedElementResultChunks
+        {
+            ExternalId = externalId,
+            AvgScore = avgScore,
+            MaxPositiveScore = maxPositiveScore,
+            MaxNegativeScore = maxNegativeScore,
+            Chunks = articleChunks.OrderBy(c => c.Id).ToList()
+        });
+    }
+
+    var sortedFinalResults = finalResults.OrderByDescending(r => r.MaxPositiveScore).ToList();
+
+    return sortedFinalResults;
+}
+   
     public static double CosineSimilarity(double[] a, double[] b)
     {
         if (a.Length != b.Length)

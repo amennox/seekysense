@@ -54,17 +54,20 @@ namespace McpServer.Models
     {
         public string ExternalId { get; set; } = "";
         public double AvgScore { get; set; }
+        public double MaxPositiveScore { get; set; }
+        public double MaxNegativeScore { get; set; }
         public List<ArticleChunk> Chunks { get; set; } = new();
 
 
     }
-    
-     public class ArticleChunk
-        {
-            public string Id { get; set; } = "";
-            public string Title { get; set; } = "";
-            public string ChunkSection { get; set; } = "";
-            public string Fulltext { get; set; } = "";
-            public double Score { get; set; }
-        }
+
+    public class ArticleChunk
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string ChunkSection { get; set; } = "";
+        public string Fulltext { get; set; } = "";
+        public double Score { get; set; }
+        public double NegativeScore { get; set; }
+    }
 }
